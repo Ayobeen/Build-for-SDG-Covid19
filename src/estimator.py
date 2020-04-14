@@ -1,243 +1,243 @@
-from flask import Flask, request, render_template, make_response, g, jsonify
+import math
 import json
-import time
+# Defining covid-19 constants..........
+NORMAL_INFECTION_GROWTH_RATE = 10
+SEVERE_INFECTION_GROWTH_RATE = 50
+PERCENTAGE_POSITIVE_CASES = 0.15
+PERCENTAGE_HOSPITAL_BED_AVAILABILITY = 0.35
+PERCENTAGE_CASES_NEEDS_FOR_ICU_CARE = 0.05
+PERCENTAGE_CASES_NEEDS_FOR_VENTILATION = 0.02
+
+sampleCaseData = {}
+responseJSON = {}
+responseJSON['data'] = {}
+responseJSON['impact'] = {}
+responseJSON['severeImpact'] = {}
 
 
+def calculateCurrentlyInfected():
+    """ /**
+   * @function calculateCurrentlyInfected
+   * @param sampleCaseData
+   * @returns currentlyInfected
+   * @description estimates and saves  the number of currently and severly infected people
+   */
+   """
+    global sampleCaseData, responseJSON
+    # update impact
+
+    saveCurrentlyInfected = (sampleCaseData['reportedCases'] * NORMAL_INFECTION_GROWTH_RATE)
+    responseJSON['impact']['currentlyInfected'] = saveCurrentlyInfected
+    # update severeImpact
+    saveSeverelyInfected = (sampleCaseData['reportedCases'] * SEVERE_INFECTION_GROWTH_RATE)
+    responseJSON['severeImpact']['currentlyInfected'] = saveSeverelyInfected
 
 
-# Init app
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'faddc0c0f6e8d2b5e7507087d1114da6'
+def calculateInfectionRatesPerPeriod(numberOfDays, periodType):
+    """/**
+   * @def calculateInfectionRatesPerPeriod
+   * @params numberOfDays, periodType
+   * @returns infectionRatioPerPeriod
+   * @description normalise the duration input to days, and then do your computation based on periods in days, weeks and months.
+   */
+   """
+    infectionRatioPerPeriod = 0
+    if periodType == 'days':
+        infectionRatioPerPeriod = pow(2, math.trunc(numberOfDays / 3))
+    elif periodType == 'weeks':
+        infectionRatioPerPeriod = pow(2, (math.trunc((numberOfDays * 7) / 3)))
+    else:
+        infectionRatioPerPeriod = pow(2, (numberOfDays * 10))
 
-# Reading Json Input
-output = ""
-@app.route('/api/v1/on-covid-19', methods=['POST']) #GET requests will be blocked
-def estimators(data):
-	input_data = request.get_json()
-
-	data = input_data['data']['region']
-	periodType = input_data['data']['periodType']
-	timeToElapse = input_data['data']['timeToElapse']
-	reportedCases = input_data['data']['reportedCases']
-	population = input_data['data']['population']
-	totalHospitalBeds = input_data['data']['totalHospitalBeds']
-
-# Cleaning Input Data
-	periodType = periodType.lower()
-	if periodType == 'days':
-		timeToElapse = timeToElapse
-	elif periodType == 'weeks':
-		timeToElapse = timeToElapse*7
-	else:
-		timeToElapse = timeToElapse*30
-	factor = timeToElapse // 3
-
-# Computing Input Data for Impact	
-	currentlyInfected = reportedCases * 10
-	infectionsByRequestedTime = currentlyInfected * 2**factor
-	#Challenge 2
-	severeCasesByRequestedTime = int(15 * 0.01 * infectionsByRequestedTime)
-	currentlyAvailableBeds = totalHospitalBeds * 0.35
-	hospitalBedsByRequestedTime = int(currentlyAvailableBeds - severeCasesByRequestedTime)
-
-	#Challenge 3
-	casesForICUByRequestedTime = int( 0.05 * infectionsByRequestedTime)
-	casesForVentilatorsByRequestedTime = int(0.02 * infectionsByRequestedTime)
-	dollarsInFlight = int((infectionsByRequestedTime 
-						* data['avgDailyIncomePopulation'] 
-						* data['avgDailyIncomeInUSD']
-						/ timeToElapse))
-
-	# Computing Input Data for SevereImpact
-	SIcurrentlyInfected = reportedCases * 50
-	SIinfectionsByRequestedTime = SIcurrentlyInfected * 2**factor
-	#Challenge 2
-	SIsevereCasesByRequestedTime = int(15 * 0.01 * SIinfectionsByRequestedTime)
-	SIcurrentlyAvailableBeds = totalHospitalBeds * 0.35
-	SIhospitalBedsByRequestedTime = int(SIcurrentlyAvailableBeds - SIsevereCasesByRequestedTime)
-
-	#Challenge 3
-	SIcasesForICUByRequestedTime = int( 0.05 * SIinfectionsByRequestedTime)
-	SIcasesForVentilatorsByRequestedTime = int(0.02 * SIinfectionsByRequestedTime)
-	SIdollarsInFlight = int((SIinfectionsByRequestedTime 
-						* data['avgDailyIncomePopulation'] 
-						* data['avgDailyIncomeInUSD']
-						/ timeToElapse))
-	# Outputing Result
-	global output
-	output = {
-			"data":{
-		  "region":{
-			"name":data["name"],
-			"avgAge": data['avgAge'],
-			"avgDailyIncomeInUSD": data['avgDailyIncomeInUSD'],
-			"avgDailyIncomePopulation": data['avgDailyIncomePopulation']
-		},
-		"periodType":periodType,
-		"timeToElapse":timeToElapse,
-		"reportedCases":reportedCases,
-		"population":population,
-		"totalHospitalBeds":totalHospitalBeds
-		},
-
-		"estimate" : {
-			"impact" : {
-				"currentlyInfected" : currentlyInfected,
-				"infectionsByRequestedTime" : infectionsByRequestedTime,
-				"severeCasesByRequestedTime" : severeCasesByRequestedTime,
-				"hospitalBedsByRequestedTime" : hospitalBedsByRequestedTime,
-				"casesForICUByRequestedTime" : casesForICUByRequestedTime,
-				"casesForVentilatorsByRequestedTime" : casesForVentilatorsByRequestedTime,
-				"dollarsInFlight" : dollarsInFlight
-				},
-			"severeImpact" : {
-				"currentlyInfected" : SIcurrentlyInfected,
-				"infectionsByRequestedTime" : SIinfectionsByRequestedTime,
-				"severeCasesByRequestedTime" : SIsevereCasesByRequestedTime,
-				"hospitalBedsByRequestedTime" : SIhospitalBedsByRequestedTime,
-				"casesForICUByRequestedTime" :SIcasesForICUByRequestedTime,
-				"casesForVentilatorsByRequestedTime" : SIcasesForVentilatorsByRequestedTime,
-				"dollarsInFlight" : SIdollarsInFlight
-			}
-
-		}
-
-	}
-	
-
-	estimate_schema = json.dumps(output, sort_keys =False, indent =4)
-	data = estimate_schema
-	return data
-	
-
-"""
-# Request/Response Time Different Logging
-
-@app.before_request
-def start_timer():
-    g.start = time.time()
-
-duration = " "
-responseCode = " "
-@app.after_request
-def log_request(response):
-
-	now = time.time()
-	global duration
-	duration = round(now - g.start, 6)
-	global responseCode
-	responseCode = response.status_code
-	method = request.method
-	path = request.path
-	logData = {}
-	logData['logs'] = []
-	logData['logs'].append({
-		'method': method,
-		'path': path,
-		'duration': duration,
-		'responseCode': responseCode
-		})
-
-	with open('logData.txt', 'a') as outfile:
-		for logs in logData:
-			json.dump(logData, outfile, indent=2)
-			#outfile.write('\n')
-			return response
-
-# Frontend Challenge
-
-@app.route("/test")
-def welcome():
-	return render_template('welcome.html', title ='welcome')
+    return infectionRatioPerPeriod
 
 
-@app.route("/api/v1/on-covid-19/xml", methods=['POST'])
-def xml():
-	my_xml_resp = make_response('Response!')
-	my_xml_resp.mimetype = 'application/xml'
+def calculateIAndReturnPeriods(numberOfDays, periodType):
+    """
+    /**
+   * @def calculateIAndReturnPeriods
+   * @params numberOfDays, periodType
+   * @returns infectionRatioPerPeriod
+   * @description normalise the duration input based on periods in days, weeks and months.
+   */
+  """
+
+    infectionRatioPerPeriod = 0
+    if periodType == 'days':
+        infectionRatioPerPeriod = numberOfDays
+    elif periodType == 'weeks':
+        infectionRatioPerPeriod = (math.trunc(numberOfDays * 7))
+    else:
+        infectionRatioPerPeriod = (math.trunc(numberOfDays * 30))
+
+    return infectionRatioPerPeriod
 
 
+def calculatePossibleInfectionGrowthRate():
+    """
+    /**
+   * @def calculatePossibleInfectionGrowthRate
+   * @param sampleCaseData
+   * @returns infectionsByRequestedTime
+   * @description To estimate the number of infected people 30 days from now,
+   */
+  """
+    global sampleCaseData, responseJSON
+    INFECTION_RATE_PER_PERIOD = calculateInfectionRatesPerPeriod(
+        sampleCaseData['timeToElapse'], sampleCaseData['periodType'])
+    # update impact
+    saveNormalSpreadRate = responseJSON['impact']['currentlyInfected'] * \
+        INFECTION_RATE_PER_PERIOD
+    responseJSON['impact']['infectionsByRequestedTime'] = saveNormalSpreadRate
+    # update severeImpact
+    saveSevereSpreadRate = responseJSON['severeImpact']['currentlyInfected'] * \
+        INFECTION_RATE_PER_PERIOD
+    responseJSON['severeImpact']['infectionsByRequestedTime'] = saveSevereSpreadRate
 
 
-	from dicttoxml import dicttoxml
-	
-	xml = dicttoxml(output, attr_type=False)
-	print (xml)
-	return xml
+def calculateSevereCases():
+    """
+    /**
+   * @def calculateSevereCases
+   * @param sampleCaseData
+   * @returns severeCasesByRequestedTime
+   * @description This is the estimated number of severe positive cases that will require hospitalization to recover.
+   */
+  """
+    global sampleCaseData, responseJSON
+    # update impact
+    estimatedNormalPositive = responseJSON['impact']['infectionsByRequestedTime'] * \
+        PERCENTAGE_POSITIVE_CASES
+    responseJSON['impact']['severeCasesByRequestedTime'] = estimatedNormalPositive
 
-import xml.etree.cElementTree as e
-	r = e.Element("CovidData")
-	data = e.SubElement(r,"data")
-	for z in estimate_schema["data"]:
-		e.SubElement(data,"Topic").text = z["Topic"]
-
-
-@app.route('/api/v1/on-covid-19/logs')
-def query_example():
-	my_json_resp = make_response('Response!!')
-	my_json_resp.mimetype = 'application/xml'
-
-	with open('logData.txt') as json_file:
-		data = json_file.read()
-		new_data = data.replace('}{', '},{')
-		logs_list = json.loads(f'[{new_data}]')
-		print(logs_list)
-		for logs in logs_list:
-			for data in logs:
-				for items in data:
-
-					print(data[items])
+    # update severeImpact
+    estimatedSeverePositive = responseJSON['severeImpact']['infectionsByRequestedTime'] * \
+        PERCENTAGE_POSITIVE_CASES
+    responseJSON['severeImpact']['severeCasesByRequestedTime'] = estimatedSeverePositive
 
 
-					return items['method'], items['path'], items['duration'], items['responseCode']
+def caclulateHospitalBedsAvailability():
+    """
+    /**
+   * @def caclulatHospitalBedsAvailability
+   * @param sampleCaseData
+   * @returns hospitalBedsByRequestedTime
+   * @description This is the estimated a 35% bed availability in hospitals for severe COVID-19 positive patients.
+   */
+  """
+    global sampleCaseData, responseJSON
+    # update impact
+    HOSPITAL_BEDS_AVAILABLE = sampleCaseData['totalHospitalBeds'] * \
+        PERCENTAGE_HOSPITAL_BED_AVAILABILITY
+    saveNormalHospitalBedAvailable = math.trunc(
+        HOSPITAL_BEDS_AVAILABLE - responseJSON['impact']['severeCasesByRequestedTime'])
+    responseJSON['impact']['hospitalBedsByRequestedTime'] = saveNormalHospitalBedAvailable
+    # update severeImpact
+    saveSevereHospitalBedAvailable = math.trunc(
+        HOSPITAL_BEDS_AVAILABLE - responseJSON['severeImpact']['severeCasesByRequestedTime'])
+    responseJSON['severeImpact']['hospitalBedsByRequestedTime'] = saveSevereHospitalBedAvailable
 
 
+def calculationICURequirement():
+    """
+    /**
+   * @def calculationICURequirement
+   * @param sampleCaseData
+   * @returns casesForICUByRequestedTime
+   * @description This is the estimated number of severe positive cases that will require ICU care.
+   */
+   """
+    global sampleCaseData, responseJSON
+    # update impact
+    saveNormalCasesNeadingICUCare = math.trunc(
+        responseJSON['impact']['infectionsByRequestedTime'] * PERCENTAGE_CASES_NEEDS_FOR_ICU_CARE)
+    responseJSON['impact']['casesForICUByRequestedTime'] = saveNormalCasesNeadingICUCare
+    # update severeImpact
+    saveSeverCasesNeadingICUCare = math.trunc(
+        responseJSON['severeImpact']['infectionsByRequestedTime'] * PERCENTAGE_CASES_NEEDS_FOR_ICU_CARE)
+    responseJSON['severeImpact']['casesForICUByRequestedTime'] = saveSeverCasesNeadingICUCare
 
 
+def calculateVentilatorsRequired():
+    """
+    /**
+   * @def calculateVentilatorsRequired
+   * @param sampleCaseData
+   * @returns casesForVentilatorsByRequestedTime
+   * @description This is the estimated number of severe positive cases that will require ventilators
+   */
+  """
+    global sampleCaseData, responseJSON
+    # update impact
+    saveNormalCasesNeedingVentilators = math.trunc(
+        responseJSON['impact']['infectionsByRequestedTime'] * PERCENTAGE_CASES_NEEDS_FOR_VENTILATION)
+    responseJSON['impact']['casesForVentilatorsByRequestedTime'] = saveNormalCasesNeedingVentilators
+    # update severeImpact
+    saveSeverCasesNeedingVentilators = math.trunc(
+        responseJSON['severeImpact']['infectionsByRequestedTime'] * PERCENTAGE_CASES_NEEDS_FOR_VENTILATION)
+    responseJSON['severeImpact']['casesForVentilatorsByRequestedTime'] = saveSeverCasesNeedingVentilators
 
 
-@app.before_request
-def before_request():
-    g.start = time.time()
-    #g.request_time = lambda: "%.5fs" % (time.time() - g.start)
-    
+def calculateCostImapctOnEconomy():
+    """
+  /**
+   * @def calculateCostImapctOnEconomy
+   * @param sampleCaseData
+   * @returns dollarsInFlight
+   * @description estimate how much money the economy is likely to lose over the said period.
+   */
+  """
+    global sampleCaseData, responseJSON
+    PERIOD_IN_FOCUS = calculateIAndReturnPeriods(
+        sampleCaseData['timeToElapse'], sampleCaseData['periodType'])
+    MAJORITIY_WORKING_POPULATION = sampleCaseData['region']['avgDailyIncomePopulation']
+    DAILY_EARNINGS = sampleCaseData['region']['avgDailyIncomeInUSD']
 
-@app.after_request
-def log_request(response):
-	if request.path == '/favicon.ico':
-		return response
-	elif request.path.startswith('/static'):
-		return response
+    # update impact
+    saveNormalDollarsInFlight = math.trunc(
+        (responseJSON['impact']['infectionsByRequestedTime'] * MAJORITIY_WORKING_POPULATION * DAILY_EARNINGS) / PERIOD_IN_FOCUS)
+    responseJSON['impact']['dollarsInFlight'] = saveNormalDollarsInFlight
+    # update severeImpact
+    saveSeverDollarInFlight = math.trunc(
+        (responseJSON['severeImpact']['infectionsByRequestedTime'] * MAJORITIY_WORKING_POPULATION * DAILY_EARNINGS) / PERIOD_IN_FOCUS)
+    responseJSON['severeImpact']['dollarsInFlight'] = saveSeverDollarInFlight
 
-@app.route("/logs")
-def logs():
-    
-    return g.start()
 
-data = [
-{
-  "logs": [
-    {
-      "method": "GET",
-      "path": "/api/v1/on-covid-19/xml",
-      "duration": 0.001,
-      "responseCode": 404
-    }
-  ]
-},
-{
-  "logs": [
-    {
-      "method": "GET",
-      "path": "/api/v1/on-covid-19/",
-      "duration": 0.001,
-      "responseCode": 404
-    }
-  ]
-}
-]
-"""
+def initCovidEstimator(data):
+  """ /**
+ * @function initCovidEstimator
+ * @param data
+ * @returns Array
+ * @description application Entry point.
+ */
+ """
+  global sampleCaseData, responseJSON
+  # initialize variables
+  # print('data')
+  # print(data)
+  # arrayToObjConvertion = dict.fromkeys(data)
+  #arrayToObjConvertion = json.dumps(data)
+  sampleCaseData = data
+  responseJSON['data'] = data
+  #print('konfa', responseJSON)
+  # compute code challenge -1
+  calculateCurrentlyInfected()
+  calculatePossibleInfectionGrowthRate()
 
-# Run Server
-if __name__ == '__main__':
-	app.run(debug=True)
+  # compute code challenge -2
+  calculateSevereCases()
+  caclulateHospitalBedsAvailability()
+
+  # compute code challenge -3
+  calculationICURequirement()
+  calculateVentilatorsRequired()
+  calculateCostImapctOnEconomy()
+
+    # return responses
+    #newRes = object_to_array(responseJSON)
+  return  responseJSON
+  
+ 
+
+def estimator(data):
+    return initCovidEstimator(data)
