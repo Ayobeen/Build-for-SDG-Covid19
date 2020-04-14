@@ -1,7 +1,7 @@
 from flask import Flask, request, render_template, make_response, g, jsonify
 import json
 import time
-from forms import EstimatorForm
+
 
 
 
@@ -110,8 +110,8 @@ def estimators(data):
 	return data
 	
 
-
-# Request/Response Time Different Log
+"""
+# Request/Response Time Different Logging
 
 @app.before_request
 def start_timer():
@@ -195,12 +195,7 @@ def query_example():
 
 
 
-# Run Server
-if __name__ == '__main__':
-	app.run(debug=True)
 
-
-"""
 @app.before_request
 def before_request():
     g.start = time.time()
@@ -242,3 +237,7 @@ data = [
 }
 ]
 """
+
+# Run Server
+if __name__ == '__main__':
+	app.run(debug=True)
